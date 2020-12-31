@@ -38,6 +38,7 @@
 #include <aidl/AidlCameraService.h>
 #include <android-base/macros.h>
 #include <android-base/parseint.h>
+#include <android-base/properties.h>
 #include <android_companion_virtualdevice_flags.h>
 #include <android/companion/virtualnative/IVirtualDeviceManagerNative.h>
 #include <binder/ActivityManager.h>
@@ -117,6 +118,7 @@ namespace {
 
 namespace android {
 
+using base::SetProperty;
 using namespace camera3;
 using namespace camera3::SessionConfigurationUtils;
 
@@ -4400,6 +4402,17 @@ status_t CameraService::BasicClient::startCameraOps() {
     }
 
     mOpsActive = true;
+
+#ifdef USES_MIUI_CAMERA
+    // Configure miui camera mode
+    if (String8(mClientPackageName.c_str()) == "com.android.camera") {
+        SetProperty("sys.camera.miui.apk", "1");
+        ALOGI("Enabling miui camera mode");
+    } else {
+        SetProperty("sys.camera.miui.apk", "0");
+        ALOGI("Disabling miui camera mode");
+    }
+#endif
 
     // Transition device availability listeners from PRESENT -> NOT_AVAILABLE
     sCameraService->updateStatus(StatusInternal::NOT_AVAILABLE, mCameraIdStr);
