@@ -333,6 +333,10 @@ public:
     bool isAutomotiveExteriorSystemCamera(const std::string& cameraId) const;
 
     /////////////////////////////////////////////////////////////////////
+    // Add support to set vendor tag with client package name
+    static std::string getCurrPackageName();
+
+    /////////////////////////////////////////////////////////////////////
     // CameraClient functionality
 
     class BasicClient :

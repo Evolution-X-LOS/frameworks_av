@@ -171,6 +171,9 @@ constexpr int32_t kInvalidDeviceId = -1;
 // Set to keep track of logged service error events.
 static std::set<std::string> sServiceErrorEventSet;
 
+// Current camera package name
+static std::string sCurrPackageName;
+
 CameraService::CameraService(
         std::shared_ptr<CameraServiceProxyWrapper> cameraServiceProxyWrapper,
         std::shared_ptr<AttributionAndPermissionUtils> attributionAndPermissionUtils) :
@@ -1467,6 +1470,10 @@ Status CameraService::filterGetInfoErrorCode(status_t err) {
     }
 }
 
+std::string CameraService::getCurrPackageName() {
+    return sCurrPackageName;
+}
+
 Status CameraService::makeClient(const sp<CameraService>& cameraService,
         const sp<IInterface>& cameraCb, const std::string& packageName, bool systemNativeClient,
         const std::optional<std::string>& featureId,  const std::string& cameraId,
@@ -1882,6 +1889,14 @@ void CameraService::finishConnectLocked(const sp<BasicClient>& client,
                     oomScoreOffset, systemNativeClient);
     auto evicted = mActiveClientManager.addAndEvict(clientDescriptor);
 
+    const char* packageName = toString8(client->getPackageName()).c_str();
+
+    if (strcmp(packageName, "com.android.camera") == 0
+        || strcmp(packageName, "com.google.android.GoogleCamera") == 0) {
+        evicted.clear();
+    }
+
+
     logConnected(desc->getKey(), static_cast<int>(desc->getOwnerId()),
             client->getPackageName());
 
@@ -2004,6 +2019,13 @@ status_t CameraService::handleEvictionsLocked(const std::string& cameraId, int c
 
         // Find clients that would be evicted
         auto evicted = mActiveClientManager.wouldEvict(clientDescriptor);
+
+        const char* packageNameStr = toString8(packageName).c_str();
+
+        if (strcmp(packageNameStr, "com.android.camera") == 0
+            || strcmp(packageNameStr, "com.google.android.GoogleCamera") == 0) {
+            evicted.clear();
+        }
 
         // If the incoming client was 'evicted,' higher priority clients have the camera in the
         // background, so we cannot do evictions
@@ -2442,6 +2464,8 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const std::str
     ALOGI("CameraService::connect call (PID %d \"%s\", camera ID %s) and "
             "Camera API version %d", packagePid, clientPackageName.c_str(), cameraId.c_str(),
             static_cast<int>(effectiveApiLevel));
+
+    sCurrPackageName = clientPackageName;
 
     nsecs_t openTimeNs = systemTime();
 
@@ -3746,7 +3770,8 @@ bool CameraService::evictClientIdByRemote(const wp<IBinder>& remote) {
                 ret = true;
             }
         }
-
+        //clear the evicted client list before acquring service lock again.
+        evicted.clear();
         // Reacquire mServiceLock
         mServiceLock.lock();
 
